@@ -1,0 +1,169 @@
+# Artillery Load Testing Configuration
+# Tests booking flow, checkout, and API endpoints
+
+config:
+  target: "http://localhost:3000"  # Change to production URL for prod testing
+  phases:
+    # Warm-up phase
+    - duration: 60
+      arrivalRate: 5
+      name: "Warm-up"
+
+    # Ramp-up phase
+    - duration: 120
+      arrivalRate: 10
+      rampTo: 50
+      name: "Ramp-up to peak"
+
+    # Peak load
+    - duration: 300
+      arrivalRate: 50
+      name: "Sustained peak load"
+
+    # Cool-down
+    - duration: 60
+      arrivalRate: 50
+      rampTo: 5
+      name: "Cool-down"
+
+  # Performance thresholds
+  ensure:
+    maxErrorRate: 1  # Max 1% error rate
+    p95: 2000        # 95th percentile response time < 2s
+    p99: 5000        # 99th percentile response time < 5s
+
+  # Plugin configuration
+  plugins:
+    expect: {}
+    metrics-by-endpoint: {}
+
+  # Variables
+  variables:
+    testSalonId: "{{ $randomUUID }}"
+    testCustomerEmail: "test-{{ $randomNumber }}@example.com"
+
+scenarios:
+  # Scenario 1: Browse Services
+  - name: "Browse Services"
+    weight: 40
+    flow:
+      - get:
+          url: "/leistungen"
+          expect:
+            - statusCode: 200
+            - contentType: text/html
+
+      - get:
+          url: "/api/services?salonId={{ testSalonId }}"
+          expect:
+            - statusCode: 200
+            - contentType: json
+
+  # Scenario 2: View Service Details
+  - name: "View Service Details"
+    weight: 30
+    flow:
+      - get:
+          url: "/leistungen/herrenschnitt"
+          expect:
+            - statusCode: 200
+
+      - think: 3  # User reads for 3 seconds
+
+  # Scenario 3: Check Availability
+  - name: "Check Availability"
+    weight: 20
+    flow:
+      - post:
+          url: "/api/booking/availability"
+          json:
+            salonId: "{{ testSalonId }}"
+            serviceIds: ["{{ $randomUUID }}"]
+            date: "2024-03-15"
+          expect:
+            - statusCode: 200
+            - contentType: json
+
+  # Scenario 4: Complete Booking Flow
+  - name: "Complete Booking"
+    weight: 10
+    flow:
+      # Step 1: Get available slots
+      - post:
+          url: "/api/booking/availability"
+          json:
+            salonId: "{{ testSalonId }}"
+            serviceIds: ["{{ $randomUUID }}"]
+            date: "2024-03-15"
+          capture:
+            - json: "$.data.slots[0].datetime"
+              as: "selectedSlot"
+
+      - think: 5  # User selects slot
+
+      # Step 2: Create temporary reservation
+      - post:
+          url: "/api/booking/reserve"
+          json:
+            salonId: "{{ testSalonId }}"
+            slotId: "{{ selectedSlot }}"
+            sessionId: "{{ $randomUUID }}"
+          expect:
+            - statusCode: 200
+
+      - think: 10  # User fills form
+
+      # Step 3: Create appointment
+      - post:
+          url: "/api/booking/create"
+          json:
+            salonId: "{{ testSalonId }}"
+            customerEmail: "{{ testCustomerEmail }}"
+            firstName: "Test"
+            lastName: "User"
+            phone: "+41791234567"
+            serviceIds: ["{{ $randomUUID }}"]
+            startsAt: "{{ selectedSlot }}"
+          expect:
+            - statusCode: 200
+
+  # Scenario 5: Shop Browse
+  - name: "Browse Shop"
+    weight: 25
+    flow:
+      - get:
+          url: "/shop"
+          expect:
+            - statusCode: 200
+
+      - get:
+          url: "/api/products?salonId={{ testSalonId }}"
+          expect:
+            - statusCode: 200
+
+      - think: 5
+
+  # Scenario 6: Health Check
+  - name: "Health Check"
+    weight: 5
+    flow:
+      - get:
+          url: "/api/health"
+          expect:
+            - statusCode: 200
+            - json: "$.status"
+              value: "healthy"
+
+  # Scenario 7: Admin Dashboard (Authenticated)
+  - name: "Admin Dashboard Load"
+    weight: 15
+    flow:
+      - get:
+          url: "/admin/dashboard"
+          expect:
+            - statusCode: [200, 302, 401]  # May redirect to login
+
+      - get:
+          url: "/admin/termine"
+          expect:
+            - statusCode: [200, 302, 401]
