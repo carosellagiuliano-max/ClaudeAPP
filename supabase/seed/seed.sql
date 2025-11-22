@@ -55,7 +55,7 @@ CASCADE;
 -- 1. DEMO SALON
 -- =====================================================================
 
-INSERT INTO salons (id, name, slug, address_line1, address_line2, city, postal_code, country, timezone, currency, phone, email, website, active)
+INSERT INTO salons (id, name, slug, address_line1, address_line2, city, postal_code, country, timezone, currency, phone, email, website, iban, active)
 VALUES (
   'a0000000-0000-0000-0000-000000000001'::uuid,
   'SCHNITTWERK by Vanessa',
@@ -70,6 +70,7 @@ VALUES (
   '+41 71 222 33 44',
   'info@schnittwerk.ch',
   'https://schnittwerk.ch',
+  'CH9300762011623852957', -- Sample Swiss IBAN for QR-Bills
   true
 );
 
@@ -306,6 +307,48 @@ VALUES
   );
 
 -- =====================================================================
+-- 10. SMS TEMPLATES
+-- =====================================================================
+
+INSERT INTO sms_templates (id, salon_id, name, slug, message_template, variables, active) VALUES
+  (
+    'b0000000-0000-0000-0000-000000000001'::uuid,
+    'a0000000-0000-0000-0000-000000000001'::uuid,
+    'Terminbestätigung',
+    'appointment-confirmation',
+    'Hallo {{customerName}}, Ihr Termin bei {{salonName}} wurde bestätigt: {{date}} um {{time}}. Bis bald!',
+    '["customerName", "salonName", "date", "time"]'::jsonb,
+    true
+  ),
+  (
+    'b0000000-0000-0000-0000-000000000002'::uuid,
+    'a0000000-0000-0000-0000-000000000001'::uuid,
+    'Terminerinnerung',
+    'appointment-reminder',
+    'Hallo {{customerName}}, Erinnerung: Morgen um {{time}} haben Sie einen Termin bei {{salonName}}. Wir freuen uns auf Sie!',
+    '["customerName", "time", "salonName"]'::jsonb,
+    true
+  ),
+  (
+    'b0000000-0000-0000-0000-000000000003'::uuid,
+    'a0000000-0000-0000-0000-000000000001'::uuid,
+    'Bestellbestätigung',
+    'order-confirmation',
+    'Hallo {{customerName}}, Ihre Bestellung #{{orderNumber}} wurde bestätigt. Gesamtbetrag: CHF {{total}}. Vielen Dank!',
+    '["customerName", "orderNumber", "total"]'::jsonb,
+    true
+  ),
+  (
+    'b0000000-0000-0000-0000-000000000004'::uuid,
+    'a0000000-0000-0000-0000-000000000001'::uuid,
+    'Versandbenachrichtigung',
+    'order-shipped',
+    'Ihre Bestellung #{{orderNumber}} wurde versandt. Trackingnummer: {{trackingNumber}}. Lieferung in 2-3 Werktagen.',
+    '["orderNumber", "trackingNumber"]'::jsonb,
+    true
+  );
+
+-- =====================================================================
 -- COMPLETED
 -- =====================================================================
 
@@ -313,12 +356,13 @@ DO $$
 BEGIN
   RAISE NOTICE '✅ Seed data successfully created!';
   RAISE NOTICE '📊 Summary:';
-  RAISE NOTICE '  - 1 Salon (SCHNITTWERK)';
+  RAISE NOTICE '  - 1 Salon (SCHNITTWERK) with IBAN';
   RAISE NOTICE '  - 3 Staff members';
   RAISE NOTICE '  - 8 Services across 4 categories';
   RAISE NOTICE '  - 5 Products';
   RAISE NOTICE '  - 4 Loyalty tiers + 3 rewards';
   RAISE NOTICE '  - 2 Legal documents';
+  RAISE NOTICE '  - 4 SMS templates';
   RAISE NOTICE '';
   RAISE NOTICE '🚀 Ready to test!';
 END $$;

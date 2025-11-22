@@ -390,6 +390,16 @@ export async function createBooking(
       .eq('salon_id', validated.salonId)
       .single()
 
+    // Get default tax rate for the salon
+    const { data: taxRate } = await supabase
+      .from('tax_rates')
+      .select('rate')
+      .eq('salon_id', validated.salonId)
+      .eq('is_default', true)
+      .single()
+
+    const defaultTaxRate = taxRate?.rate || 7.7
+
     // Handle customer: find existing or create new
     let customerId = validated.customer.customerId
 
@@ -458,7 +468,7 @@ export async function createBooking(
         service_name_snapshot: service.name,
         duration_minutes_snapshot: service.durationMinutes,
         price_chf_snapshot: service.priceChf,
-        tax_rate_snapshot: 8.1, // TODO: Get from tax_rates table
+        tax_rate_snapshot: defaultTaxRate,
         display_order: i,
       })
     }

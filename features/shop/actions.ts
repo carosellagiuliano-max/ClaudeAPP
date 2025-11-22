@@ -13,6 +13,7 @@
 import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 import { createClient } from '@/lib/db/client'
+import { getCurrentCustomerId } from '@/lib/auth/rbac'
 import {
   type Product,
   type ProductWithDetails,
@@ -194,10 +195,13 @@ async function getOrCreateCartId(salonId: string): Promise<string> {
     if (data) return cartId
   }
 
+  // Get customer ID if logged in
+  const customerId = await getCurrentCustomerId(salonId)
+
   // Create new cart using database function
   const { data, error } = await supabase.rpc('get_or_create_cart', {
     p_salon_id: salonId,
-    p_customer_id: null, // TODO: Get from auth
+    p_customer_id: customerId,
     p_session_id: crypto.randomUUID(), // Generate unique session ID
   })
 
@@ -416,11 +420,12 @@ export async function validateVoucher(
   orderTotalChf: number
 ): Promise<VoucherValidationResult> {
   const supabase = createClient()
+  const customerId = await getCurrentCustomerId(salonId)
 
   const { data, error } = await supabase.rpc('validate_voucher', {
     p_salon_id: salonId,
     p_code: code.toUpperCase(),
-    p_customer_id: null, // TODO: Get from auth
+    p_customer_id: customerId,
     p_order_total_chf: orderTotalChf,
   })
 
@@ -510,10 +515,30 @@ export async function createOrder(
 
 export async function getCustomerOrders(salonId: string): Promise<OrderWithItems[]> {
   const supabase = createClient()
+  const customerId = await getCurrentCustomerId(salonId)
 
-  // TODO: Get customer ID from auth
-  // For now, return empty array
-  return []
+  if (!customerId) return []
+
+  const { data, error } = await supabase
+    .from('orders')
+    .select(`
+      *,
+      items:order_items(
+        *,
+        product:product_id(id, name, price)
+      ),
+      shipping_method:shipping_method_id(name, price)
+    `)
+    .eq('salon_id', salonId)
+    .eq('customer_id', customerId)
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    console.error('Error fetching customer orders:', error)
+    return []
+  }
+
+  return data || []
 }
 
 export async function getOrderById(orderId: string): Promise<OrderWithDetails | null> {
