@@ -146,3 +146,34 @@ export async function requireStaff(salonId: string): Promise<void> {
     throw new Error('Keine Berechtigung')
   }
 }
+
+/**
+ * Get customer ID for current authenticated user
+ */
+export async function getCurrentCustomerId(
+  salonId?: string
+): Promise<string | null> {
+  try {
+    const user = await getCurrentUser()
+    if (!user) return null
+
+    const supabase = createClient()
+
+    let query = supabase
+      .from('customers')
+      .select('id')
+      .eq('user_id', user.id)
+
+    if (salonId) {
+      query = query.eq('salon_id', salonId)
+    }
+
+    const { data, error } = await query.maybeSingle()
+
+    if (error || !data) return null
+
+    return data.id
+  } catch {
+    return null
+  }
+}
