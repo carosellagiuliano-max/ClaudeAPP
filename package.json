@@ -18,9 +18,12 @@
     "test:unit": "vitest",
     "test:e2e": "playwright test",
     "test:all": "npm run test:unit && npm run test:e2e",
+    "test:load:artillery": "artillery run artillery.yml",
+    "test:load:k6": "k6 run k6-load-test.js",
     "security:audit": "npx tsx scripts/security-audit.ts",
     "verify:multi-tenant": "npx tsx scripts/verify-multi-tenant.ts",
-    "ci": "npm run type-check && npm run lint && npm run test:unit"
+    "ci": "npm run type-check && npm run lint && npm run test:unit",
+    "checklist": "cat docs/production-readiness-checklist.md"
   },
   "dependencies": {
     "next": "^14.2.0",
